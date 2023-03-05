@@ -1,7 +1,10 @@
+require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
 const app = express();
+
+const Person = require("./models/person");
 
 app.use(cors());
 app.use(morgan("tiny"));
@@ -12,34 +15,16 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-let persons = [
-    {
-        id: 1,
-        name: "Arto Hellas",
-        number: "040-123456",
-    },
-    {
-        id: 2,
-        name: "Ada Lovelace",
-        number: "39-44-5323523",
-    },
-    {
-        id: 3,
-        name: "Dan Abramov",
-        number: "12-43-234345",
-    },
-    {
-        id: 4,
-        name: "Mary Poppendieck",
-        number: "39-23-6423122",
-    },
-];
+let persons = ["wawwaaa"];
 
 app.get("/api/persons", (request, response) => {
-    response.json(persons);
+    Person.find({}).then((person) => {
+        response.json(person);
+    });
 });
 
 app.get("/api/persons/:id", (request, response) => {
+    /*
     const id = Number(request.params.id);
     const person = persons.find((person) => person.id === id);
 
@@ -48,15 +33,14 @@ app.get("/api/persons/:id", (request, response) => {
     } else {
         response.status(404).end();
     }
+*/
+    Person.findById(request.params.id).then((person) => {
+        response.json(person);
+    });
 });
 
 app.get("/info", (request, response) => {
     const date = new Date(Date.now());
-    /*
-    let dateStr = `${dayOfWeekAsString(date.getDay())} ${monthAsString(
-        date.getMonth()
-    )}`;
-*/
     let test = date.toString();
 
     response.send(
@@ -65,16 +49,24 @@ app.get("/info", (request, response) => {
 });
 
 app.delete("/api/persons/:id", (request, response) => {
+    /*
     const id = Number(request.params.id);
     persons = persons.filter((person) => person.id !== id);
 
     response.status(204).end();
+*/
+    Person.findByIdAndRemove(request.params.id)
+        .then((result) => {
+            response.status(204).end();
+        })
+        .catch((err) => {
+            next(err);
+        });
 });
 
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", (request, response, next) => {
     const body = request.body;
-    console.log(request.body);
-
+    /*
     if (!body.name) {
         return response.status(400).json({
             error: "name missing",
@@ -92,17 +84,33 @@ app.post("/api/persons", (request, response) => {
             error: "duplicate name",
         });
     }
+*/
 
-    const newPerson = {
+    const person = new Person({
         name: body.name,
         number: body.number,
-        id: Math.floor(Math.random() * 1000),
-    };
+    });
 
-    persons = persons.concat(newPerson);
-
-    response.json(newPerson);
+    person
+        .save()
+        .then((savedPerson) => {
+            response.json(savedPerson);
+        })
+        .catch((err) => next(err));
 });
+
+const errorHandler = (err, req, res, next) => {
+    console.log(err.message);
+    if (err.name === "CastError") {
+        return res.status(400).send({ error: "malformatted id" });
+    } else if ((err.name = "ValidationError")) {
+        return res.status(400).send({ error: err.message });
+    }
+
+    next(err);
+};
+
+app.use(errorHandler);
 
 function nameInPhonebook(name, phonebook) {
     //console.log("name is " + name);
